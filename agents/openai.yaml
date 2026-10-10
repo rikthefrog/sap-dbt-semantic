@@ -1,0 +1,4 @@
+interface:
+  display_name: "SAP dbt Semantic Models"
+  short_description: "Build SAP facts, dimensions and dbt semantic metrics"
+  default_prompt: "Use $sap-dbt-semantic to build dbt semantic models for my SAP modules, with explicit fact grains, shared dimensions and validated metrics."

@@ -1,0 +1,369 @@
+# Illustrative dbt v1.12+ semantic specification. Requires the dbt SQL models described in references/module-contracts.md.
+version: 2
+models:
+- name: fct_sd_billing_item
+  description: One billing item; qualified billing documents, credits and cancellations
+    normalized.
+  semantic_model:
+    enabled: true
+  agg_time_dimension: billing_date
+  columns:
+  - name: billing_item_key
+    entity:
+      type: primary
+      name: sd_billing_item
+  - name: billing_date
+    granularity: day
+    dimension:
+      type: time
+  - name: sold_to_customer_key
+    entity:
+      type: foreign
+      name: customer
+  - name: material_key
+    entity:
+      type: foreign
+      name: material
+  - name: company_code_key
+    entity:
+      type: foreign
+      name: company_code
+  - name: sales_organization
+    dimension:
+      type: categorical
+  - name: signed_net_amount_eur
+    description: Prepared upstream according to the model contract in references/module-contracts.md.
+  metrics:
+  - name: sd_net_billed_sales_eur
+    label: Net billed sales (EUR)
+    type: simple
+    agg: sum
+    expr: signed_net_amount_eur
+- name: fct_mm_purchase_order_item
+  description: One eligible purchase order item at its current value; not an order
+    change history or actual spend.
+  semantic_model:
+    enabled: true
+  agg_time_dimension: order_date
+  columns:
+  - name: purchase_order_item_key
+    entity:
+      type: primary
+      name: mm_purchase_order_item
+  - name: order_date
+    granularity: day
+    dimension:
+      type: time
+  - name: supplier_key
+    entity:
+      type: foreign
+      name: supplier
+  - name: material_key
+    entity:
+      type: foreign
+      name: material
+  - name: plant_key
+    entity:
+      type: foreign
+      name: plant
+  - name: purchasing_organization
+    dimension:
+      type: categorical
+  - name: net_order_amount_eur
+    description: Prepared upstream according to the model contract in references/module-contracts.md.
+  metrics:
+  - name: mm_ordered_value_eur
+    label: Purchase order value (EUR)
+    type: simple
+    agg: sum
+    expr: net_order_amount_eur
+- name: fct_fi_journal_line
+  description: One journal line from one selected ledger; debit positive, credit negative.
+  semantic_model:
+    enabled: true
+  agg_time_dimension: posting_date
+  columns:
+  - name: journal_line_key
+    entity:
+      type: primary
+      name: fi_journal_line
+  - name: posting_date
+    granularity: day
+    dimension:
+      type: time
+  - name: company_code_key
+    entity:
+      type: foreign
+      name: company_code
+  - name: gl_account_key
+    entity:
+      type: foreign
+      name: gl_account
+  - name: fiscal_year
+    dimension:
+      type: categorical
+  - name: fiscal_period
+    dimension:
+      type: categorical
+  - name: signed_amount_eur
+    description: Prepared upstream according to the model contract in references/module-contracts.md.
+  metrics:
+  - name: fi_posted_movement_eur
+    label: Signed posted movement (EUR)
+    type: simple
+    agg: sum
+    expr: signed_amount_eur
+- name: fct_co_cost_posting
+  description: One actual cost posting from one selected ledger/version, with an explicit
+    settlement and allocation policy.
+  semantic_model:
+    enabled: true
+  agg_time_dimension: posting_date
+  columns:
+  - name: cost_posting_key
+    entity:
+      type: primary
+      name: co_cost_posting
+  - name: posting_date
+    granularity: day
+    dimension:
+      type: time
+  - name: cost_center_key
+    entity:
+      type: foreign
+      name: cost_center
+  - name: company_code_key
+    entity:
+      type: foreign
+      name: company_code
+  - name: cost_element
+    dimension:
+      type: categorical
+  - name: signed_actual_cost_eur
+    description: Prepared upstream according to the model contract in references/module-contracts.md.
+  metrics:
+  - name: co_actual_cost_eur
+    label: Actual costs (EUR)
+    type: simple
+    agg: sum
+    expr: signed_actual_cost_eur
+- name: fct_pp_production_confirmation
+  description: One eligible final-output operation confirmation; reversals normalized,
+    quantities converted to material base unit.
+  semantic_model:
+    enabled: true
+  agg_time_dimension: posting_date
+  columns:
+  - name: production_confirmation_key
+    entity:
+      type: primary
+      name: pp_production_confirmation
+  - name: posting_date
+    granularity: day
+    dimension:
+      type: time
+  - name: material_key
+    entity:
+      type: foreign
+      name: material
+  - name: plant_key
+    entity:
+      type: foreign
+      name: plant
+  - name: base_uom
+    dimension:
+      type: categorical
+  - name: signed_yield_qty_base
+    description: Prepared upstream according to the model contract in references/module-contracts.md.
+  - name: signed_scrap_qty_base
+    description: Prepared upstream according to the model contract in references/module-contracts.md.
+  metrics:
+  - name: pp_good_output_quantity
+    label: Good output quantity
+    type: simple
+    agg: sum
+    expr: signed_yield_qty_base
+  - name: pp_scrap_quantity
+    label: Scrap quantity
+    type: simple
+    agg: sum
+    expr: signed_scrap_qty_base
+- name: fct_pm_maintenance_order
+  description: One maintenance order; count grouped by creation date, not completion
+    date.
+  semantic_model:
+    enabled: true
+  agg_time_dimension: created_date
+  columns:
+  - name: maintenance_order_key
+    entity:
+      type: primary
+      name: pm_maintenance_order
+  - name: created_date
+    granularity: day
+    dimension:
+      type: time
+  - name: equipment_key
+    entity:
+      type: foreign
+      name: equipment
+  - name: plant_key
+    entity:
+      type: foreign
+      name: plant
+  - name: order_type
+    dimension:
+      type: categorical
+  metrics:
+  - name: pm_orders_created
+    label: Maintenance orders created
+    type: simple
+    agg: count_distinct
+    expr: maintenance_order_key
+- name: fct_qm_inspection_lot_decision
+  description: One inspection lot with one selected current lot-level usage decision;
+    undecided lots excluded.
+  semantic_model:
+    enabled: true
+  agg_time_dimension: decision_date
+  columns:
+  - name: inspection_lot_decision_key
+    entity:
+      type: primary
+      name: qm_inspection_lot_decision
+  - name: decision_date
+    granularity: day
+    dimension:
+      type: time
+  - name: material_key
+    entity:
+      type: foreign
+      name: material
+  - name: plant_key
+    entity:
+      type: foreign
+      name: plant
+  - name: decision_category
+    dimension:
+      type: categorical
+  - name: is_rejected_int
+    description: Prepared upstream according to the model contract in references/module-contracts.md.
+  metrics:
+  - name: qm_decided_lots
+    label: Decided inspection lots
+    type: simple
+    agg: count_distinct
+    expr: inspection_lot_decision_key
+  - name: qm_rejected_lots
+    label: Rejected inspection lots
+    type: simple
+    agg: sum
+    expr: is_rejected_int
+- name: dim_customer
+  description: One current row per fully scoped customer key.
+  semantic_model:
+    enabled: true
+  columns:
+  - name: customer_key
+    entity:
+      type: primary
+      name: customer
+  - name: customer_name
+    dimension:
+      type: categorical
+  - name: country
+    dimension:
+      type: categorical
+- name: dim_supplier
+  description: One current row per fully scoped supplier key.
+  semantic_model:
+    enabled: true
+  columns:
+  - name: supplier_key
+    entity:
+      type: primary
+      name: supplier
+  - name: supplier_name
+    dimension:
+      type: categorical
+  - name: country
+    dimension:
+      type: categorical
+- name: dim_material
+  description: One current row per fully scoped material key.
+  semantic_model:
+    enabled: true
+  columns:
+  - name: material_key
+    entity:
+      type: primary
+      name: material
+  - name: material_description
+    dimension:
+      type: categorical
+  - name: material_group
+    dimension:
+      type: categorical
+- name: dim_plant
+  description: One current row per fully scoped plant key.
+  semantic_model:
+    enabled: true
+  columns:
+  - name: plant_key
+    entity:
+      type: primary
+      name: plant
+  - name: plant_name
+    dimension:
+      type: categorical
+- name: dim_company_code
+  description: One current row per fully scoped company_code key.
+  semantic_model:
+    enabled: true
+  columns:
+  - name: company_code_key
+    entity:
+      type: primary
+      name: company_code
+  - name: company_name
+    dimension:
+      type: categorical
+- name: dim_gl_account
+  description: One current row per fully scoped gl_account key.
+  semantic_model:
+    enabled: true
+  columns:
+  - name: gl_account_key
+    entity:
+      type: primary
+      name: gl_account
+  - name: account_name
+    dimension:
+      type: categorical
+  - name: account_type
+    dimension:
+      type: categorical
+- name: dim_cost_center
+  description: One current row per fully scoped cost_center key.
+  semantic_model:
+    enabled: true
+  columns:
+  - name: cost_center_key
+    entity:
+      type: primary
+      name: cost_center
+  - name: cost_center_name
+    dimension:
+      type: categorical
+- name: dim_equipment
+  description: One current row per fully scoped equipment key.
+  semantic_model:
+    enabled: true
+  columns:
+  - name: equipment_key
+    entity:
+      type: primary
+      name: equipment
+  - name: equipment_description
+    dimension:
+      type: categorical
